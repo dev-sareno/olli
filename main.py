@@ -9,7 +9,7 @@ import time
 app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with shell", version="1.0.0")
 
 # Configuration
-BASE_DIR = "./mydir2s"
+BASE_DIR = "/Users/sareno/src/dev-sareno/mkdocs"
 
 # Helper functions
 def get_file_metadata(file_path: str):
@@ -144,7 +144,7 @@ def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_D
     return {"message": "File uploaded successfully"}
 
 @app.post("/exec")
-def execute_git_command(command_request: CommandRequest):
+def execute_command(command_request: CommandRequest):
     """Execute a command"""
     command = command_request.command
     start_time = time.time()
