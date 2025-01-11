@@ -1,15 +1,20 @@
 from fastapi import FastAPI, HTTPException, UploadFile, Form, File, Depends
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 from typing import List
 import os
 import subprocess
 import time
 
-app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with shell", version="1.0.0")
-
 # Configuration
 BASE_DIR = "/Users/sareno/src/dev-sareno/mkdocs"
+USERNAME = os.getenv("API_USERNAME", "admin")
+PASSWORD = os.getenv("API_PASSWORD", "password")
+
+app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with shell", version="1.0.0")
+
+security = HTTPBasic()
 
 # Helper functions
 def get_file_metadata(file_path: str):
@@ -32,6 +37,10 @@ def list_files_recursively(base_dir: str):
             files.append(get_file_metadata(file_path))
     return files
 
+def verify_credentials(credentials: HTTPBasicCredentials):
+    if credentials.username != USERNAME or credentials.password != PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid credentials", headers={"WWW-Authenticate": "Basic"})
+
 # Pydantic models
 class FileRequest(BaseModel):
     file_name: str
@@ -53,7 +62,8 @@ class FileListResponse(BaseModel):
     files: List[FileMetadata]
 
 @app.get("/files", response_model=FileListResponse)
-def list_files(page: int = 1, per_page: int = 100):
+def list_files(page: int = 1, per_page: int = 100, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     """List files in the directory and subdirectories"""
     files = list_files_recursively(BASE_DIR)
     start_index = (page - 1) * per_page
@@ -68,7 +78,8 @@ def list_files(page: int = 1, per_page: int = 100):
     }
 
 @app.post("/files", status_code=201)
-def create_file(file_request: FileRequest):
+def create_file(file_request: FileRequest, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     sanitized_filename = os.path.normpath(file_request.file_name)
     if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
@@ -79,7 +90,8 @@ def create_file(file_request: FileRequest):
     return {"message": "File created successfully"}
 
 @app.get("/files/{filename:path}")
-def view_file(filename: str):
+def view_file(filename: str, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     sanitized_filename = os.path.normpath(filename)
     if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
@@ -94,7 +106,8 @@ def view_file(filename: str):
     return {"content": content}
 
 @app.put("/files/{filename:path}")
-def update_file(filename: str, file_request: FileRequest):
+def update_file(filename: str, file_request: FileRequest, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     sanitized_filename = os.path.normpath(filename)
     if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
@@ -109,7 +122,8 @@ def update_file(filename: str, file_request: FileRequest):
     return {"message": "File updated successfully"}
 
 @app.delete("/files/{filename:path}")
-def delete_file(filename: str):
+def delete_file(filename: str, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     sanitized_filename = os.path.normpath(filename)
     if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
@@ -123,7 +137,8 @@ def delete_file(filename: str):
     return {"message": "File deleted successfully"}
 
 @app.get("/files/download/{filename:path}")
-def download_file(filename: str):
+def download_file(filename: str, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     """Download a file"""
     file_path = os.path.join(BASE_DIR, filename)
     if not os.path.exists(file_path):
@@ -131,7 +146,8 @@ def download_file(filename: str):
     return FileResponse(file_path, filename=filename)
 
 @app.post("/files/upload")
-def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_DIR)):
+def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_DIR), credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     sanitized_filename = os.path.normpath(file.filename)
     if target_location.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
@@ -144,7 +160,8 @@ def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_D
     return {"message": "File uploaded successfully"}
 
 @app.post("/exec")
-def execute_command(command_request: CommandRequest):
+def execute_command(command_request: CommandRequest, credentials: HTTPBasicCredentials = Depends(security)):
+    verify_credentials(credentials)
     """Execute a command"""
     command = command_request.command
     start_time = time.time()
