@@ -148,7 +148,7 @@ def execute_command(command_request: CommandRequest):
     """Execute a command"""
     command = command_request.command
     start_time = time.time()
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(command, cwd=BASE_DIR, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     end_time = time.time()
 
