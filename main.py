@@ -6,7 +6,7 @@ import os
 import subprocess
 import time
 
-app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with Git", version="1.0.0")
+app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with shell", version="1.0.0")
 
 # Configuration
 BASE_DIR = "./mydir2s"
