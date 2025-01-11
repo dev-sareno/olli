@@ -9,7 +9,7 @@ import time
 app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with Git", version="1.0.0")
 
 # Configuration
-BASE_DIR = "./"
+BASE_DIR = "./mydir2s"
 
 # Helper functions
 def get_file_metadata(file_path: str):
@@ -69,21 +69,24 @@ def list_files(page: int = 1, per_page: int = 100):
 
 @app.post("/files", status_code=201)
 def create_file(file_request: FileRequest):
-    if file_request.file_name.startswith(".git/"):
+    sanitized_filename = os.path.normpath(file_request.file_name)
+    if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
-    os.makedirs(os.path.dirname(os.path.join(BASE_DIR, file_request.file_name)), exist_ok=True)  # Create missing directories if necessary
-    """Create a new file"""
-    file_path = os.path.join(BASE_DIR, file_request.file_name)
+    os.makedirs(os.path.dirname(os.path.join(BASE_DIR, sanitized_filename)), exist_ok=True)
+    file_path = os.path.join(BASE_DIR, sanitized_filename)
     with open(file_path, 'w') as file:
         file.write(file_request.content)
     return {"message": "File created successfully"}
 
 @app.get("/files/{filename:path}")
 def view_file(filename: str):
+    sanitized_filename = os.path.normpath(filename)
+    if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
+        raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """View the content of a file"""
-    file_path = os.path.join(BASE_DIR, filename)
+    file_path = os.path.join(BASE_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     with open(file_path, 'r') as file:
@@ -92,10 +95,13 @@ def view_file(filename: str):
 
 @app.put("/files/{filename:path}")
 def update_file(filename: str, file_request: FileRequest):
+    sanitized_filename = os.path.normpath(filename)
+    if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
+        raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """Update an existing file"""
-    file_path = os.path.join(BASE_DIR, filename)
+    file_path = os.path.join(BASE_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     with open(file_path, 'w') as file:
@@ -104,10 +110,13 @@ def update_file(filename: str, file_request: FileRequest):
 
 @app.delete("/files/{filename:path}")
 def delete_file(filename: str):
+    sanitized_filename = os.path.normpath(filename)
+    if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
+        raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """Delete a file"""
-    file_path = os.path.join(BASE_DIR, filename)
+    file_path = os.path.join(BASE_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     os.remove(file_path)
@@ -123,6 +132,9 @@ def download_file(filename: str):
 
 @app.post("/files/upload")
 def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_DIR)):
+    sanitized_filename = os.path.normpath(file.filename)
+    if target_location.startswith(".git/") or ".." in sanitized_filename:
+        raise HTTPException(status_code=403, detail="Invalid or forbidden filename")
     if target_location.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """Upload a file"""

@@ -2,6 +2,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from main import app, BASE_DIR
+import urllib.parse
 
 client = TestClient(app)
 
@@ -92,10 +93,12 @@ def test_non_existing_file():
 
 
 def test_special_characters_in_filename():
-    response = client.post("/files", json={"file_name": "special_!@#.txt", "content": "Special"})
+    special_filename = "special_!@#.txt"
+    response = client.post("/files", json={"file_name": special_filename, "content": "Special"})
     assert response.status_code == 201
     assert response.json()["message"] == "File created successfully"
 
-    response = client.get("/files/special_!@#.txt")
+    encoded_filename = urllib.parse.quote(special_filename)
+    response = client.get(f"/files/{encoded_filename}")
     assert response.status_code == 200
     assert response.json()["content"] == "Special"
