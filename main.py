@@ -8,9 +8,9 @@ import subprocess
 import time
 
 # Configuration
-BASE_DIR = "/Users/sareno/src/dev-sareno/mkdocs"
-USERNAME = os.getenv("API_USERNAME", "admin")
-PASSWORD = os.getenv("API_PASSWORD", "password")
+WORK_DIR = os.getenv("API_USERNAME", "/tmp/olli")
+USERNAME = os.getenv("API_USERNAME", "admin.olli")
+PASSWORD = os.getenv("API_PASSWORD", "password.olli")
 
 app = FastAPI(title="File Management API", description="A simple REST API to manage files and interact with shell", version="1.0.0")
 
@@ -20,7 +20,7 @@ security = HTTPBasic()
 def get_file_metadata(file_path: str):
     stats = os.stat(file_path)
     return {
-        "file_name": os.path.relpath(file_path, BASE_DIR),
+        "file_name": os.path.relpath(file_path, WORK_DIR),
         "file_size_bytes": stats.st_size,
         "creation_date": time.ctime(stats.st_ctime),
         "update_date": time.ctime(stats.st_mtime)
@@ -65,7 +65,7 @@ class FileListResponse(BaseModel):
 def list_files(page: int = 1, per_page: int = 100, credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
     """List files in the directory and subdirectories"""
-    files = list_files_recursively(BASE_DIR)
+    files = list_files_recursively(WORK_DIR)
     start_index = (page - 1) * per_page
     end_index = start_index + per_page
     files_paginated = files[start_index:end_index]
@@ -83,8 +83,8 @@ def create_file(file_request: FileRequest, credentials: HTTPBasicCredentials = D
     sanitized_filename = os.path.normpath(file_request.file_name)
     if sanitized_filename.startswith(".git/") or ".." in sanitized_filename:
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
-    os.makedirs(os.path.dirname(os.path.join(BASE_DIR, sanitized_filename)), exist_ok=True)
-    file_path = os.path.join(BASE_DIR, sanitized_filename)
+    os.makedirs(os.path.dirname(os.path.join(WORK_DIR, sanitized_filename)), exist_ok=True)
+    file_path = os.path.join(WORK_DIR, sanitized_filename)
     with open(file_path, 'w') as file:
         file.write(file_request.content)
     return {"message": "File created successfully"}
@@ -98,7 +98,7 @@ def view_file(filename: str, credentials: HTTPBasicCredentials = Depends(securit
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """View the content of a file"""
-    file_path = os.path.join(BASE_DIR, sanitized_filename)
+    file_path = os.path.join(WORK_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     with open(file_path, 'r') as file:
@@ -114,7 +114,7 @@ def update_file(filename: str, file_request: FileRequest, credentials: HTTPBasic
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """Update an existing file"""
-    file_path = os.path.join(BASE_DIR, sanitized_filename)
+    file_path = os.path.join(WORK_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     with open(file_path, 'w') as file:
@@ -130,7 +130,7 @@ def delete_file(filename: str, credentials: HTTPBasicCredentials = Depends(secur
     if filename.startswith(".git/"):
         raise HTTPException(status_code=403, detail="Operation not allowed on .git directory")
     """Delete a file"""
-    file_path = os.path.join(BASE_DIR, sanitized_filename)
+    file_path = os.path.join(WORK_DIR, sanitized_filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     os.remove(file_path)
@@ -140,13 +140,13 @@ def delete_file(filename: str, credentials: HTTPBasicCredentials = Depends(secur
 def download_file(filename: str, credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
     """Download a file"""
-    file_path = os.path.join(BASE_DIR, filename)
+    file_path = os.path.join(WORK_DIR, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path, filename=filename)
 
 @app.post("/files/upload")
-def upload_file(file: UploadFile = File(...), target_location: str = Form(BASE_DIR), credentials: HTTPBasicCredentials = Depends(security)):
+def upload_file(file: UploadFile = File(...), target_location: str = Form(WORK_DIR), credentials: HTTPBasicCredentials = Depends(security)):
     verify_credentials(credentials)
     sanitized_filename = os.path.normpath(file.filename)
     if target_location.startswith(".git/") or ".." in sanitized_filename:
@@ -165,7 +165,7 @@ def execute_command(command_request: CommandRequest, credentials: HTTPBasicCrede
     """Execute a command"""
     command = command_request.command
     start_time = time.time()
-    process = subprocess.Popen(command, cwd=BASE_DIR, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(command, cwd=WORK_DIR, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     end_time = time.time()
 
