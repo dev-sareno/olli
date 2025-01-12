@@ -8,7 +8,7 @@ import subprocess
 import time
 
 # Configuration
-WORK_DIR = os.getenv("API_USERNAME", "/tmp/olli")
+WORK_DIR = os.getenv("WORK_DIR", "/tmp/olli")
 USERNAME = os.getenv("API_USERNAME", "admin.olli")
 PASSWORD = os.getenv("API_PASSWORD", "password.olli")
 
